@@ -24,8 +24,8 @@ def test_conversion():
     nfexpr2expr(expr2nfexpr(g)).equivalent(g)
 
 def test_basic():
-    assert DisjNormalForm(dict(), set()) == 0
-    assert ConjNormalForm(dict(), set()) == 1
+    assert DisjNormalForm(set()) == 0
+    assert ConjNormalForm(set()) == 1
 
     f = -a * b + a * -b
     g = (a + b) * (-a + -b)

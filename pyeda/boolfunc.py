@@ -1,6 +1,9 @@
 """
 Boolean Functions
 
+Globals:
+    VARIABLES
+
 Interface Functions:
     num2point
     point2term
@@ -16,6 +19,8 @@ Interface Classes:
 """
 
 from pyeda.common import bit_on
+
+VARIABLES = dict()
 
 
 def num2point(num, vs):
@@ -93,22 +98,30 @@ class Variable(object):
     This implementation includes optional indices, nonnegative integers that
     can be used to construct multi-dimensional bit vectors.
     """
+
+    _UNIQIDS = dict()
+    _CNT = 1
+
     def __new__(cls, name, indices=None, namespace=None):
-        self = super(Variable, cls).__new__(cls)
-        self.name = name
         if indices is None:
-            self.indices = tuple()
+            indices = tuple()
         elif type(indices) is int:
-            self.indices = (indices, )
-        elif type(indices) is tuple:
-            self.indices = indices
-        else:
-            raise ValueError("invalid indices")
-        if namespace is None or type(namespace) is str:
+            indices = (indices, )
+        try:
+            uniqid = cls._UNIQIDS[(namespace, name, indices)]
+        except KeyError:
+            uniqid = cls._CNT
+            cls._CNT += 1
+            cls._UNIQIDS[(namespace, name, indices)] = uniqid
+        try:
+            self = VARIABLES[uniqid]
+        except KeyError:
+            self = super(Variable, cls).__new__(cls)
             self.namespace = namespace
-        else:
-            raise ValueError("invalid namespace")
-        self.qualname = name if namespace is None else namespace + "." + name
+            self.name = name
+            self.indices = indices
+            self.uniqid = uniqid
+            VARIABLES[self.uniqid] = self
         return self
 
     def __repr__(self):
@@ -123,6 +136,13 @@ class Variable(object):
             return self.indices < other.indices
         else:
             return self.name < other.name
+
+    @property
+    def qualname(self):
+        if self.namespace is None:
+            return self.name
+        else:
+            return self.namespace + "." + self.name
 
 
 class Function(object):
