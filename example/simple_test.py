@@ -191,36 +191,129 @@ def _bdd2gt(graph,var,bdd,branch=False,index=0,rank=0):
 
 
 
-def simple_robdd(bf):
+
+
+def init_T(bdd):
+     """Initialize the T table
+     """ 
+     bdd['T'][0] = (bdd["n"]+1,None,None) # (Leaves are using max index+1) 
+     bdd['T'][1] = (bdd["n"]+1,None,None) # (Leaves are using max index+1) 
+     # "u" is already set to 1...
+     
+def add_T(bdd,i,l,h):
+     """ Add a new entry in the T table
+     return a new node number
+     """
+     u = bdd["u"] + 1
+     bdd["T"][u] = (i,l,h)
+     bdd["u"] = u
+     return u
+
+def member_H(bdd,i,l,h):
+     return (i,l,h) in bdd["H"]
+
+def lookup_H(bdd,i,l,h):
+     return  bdd["H"][(i,l,h)]
+
+def insert_H(bdd,i,l,h,u):
+     bdd["H"][(i,l,h)] = u
+
+def MK(bdd,i,l,h):
+     """MK (make) function
+     Arguments:
+     - `bdd`: the current bdd under construction
+     - `i`: : the variable index (x_i) (i=1 : top)
+     - `l`: : node number for 'low' branch
+     - `h`: : node number for 'high' branch
+     """
+     if l == h : return l
+     if member_H(bdd,i,l,h):
+          return lookup_H(bdd,i,l,h)
+     else:
+          u = add_T(bdd,i,l,h)
+          insert_H(bdd,i,l,h,u)
+          return u
+     
+def _build(bdd,expr,i):
+     """
+     
+     Arguments:
+     - `bdd` : bdd under construction
+     - `expr`: the boolean expression for variable i
+     - `i`   : variable index (i = 1 : top)
+     """
+
+     
+     
+     print("_build " + '-'*20)
+     print("_build : expr = %s" % (expr))
+     print("_build : i    = %d" % (i))
+     print("_build : bdd  = %s" % (bdd))
+     print("_build : n  = %s" % (bdd["n"]))
+    
+     
+
+     
+     if i> bdd["n"]: # we have reach the leaves
+          print "End reached !"
+          if expr:
+               return 1
+          else:
+               return 0
+     else:
+          print "Continuing !"
+          var = bdd["support"][i-1]
+          print("_build : var  = %s" % (var))
+          if type(expr) is int:
+               cf_false = expr
+               cf_true  = expr
+          else:
+               cf_false,cf_true = expr.cofactors(var)
+               print("_build : cofactors for var = %s" %(var))
+               print("_build : cfalse = %s" %(cf_false))
+               print("_build : ctrue = %s" %(cf_true))
+          v0 = _build(bdd,cf_false ,i+1)
+          v1 = _build(bdd,cf_true,i+1)
+          return MK(bdd,i,v0,v1)
+          
+          
+          
+     
+def simple_robdd(bf,ordering=None):
      """
      A simple ROBDD building algorithm
      
      Arguments:
      - `bf`: A boolean function
+     - `ordering` : A list of boolean variables, to define order (first at top)
      """
-     top = list(bf.support)[0]
-     print top
-     cf_false,cf_true = bf.cofactors(top)
-     print (cf_true,cf_false)
-     if type(cf_true) is int:
-          true_val = cf_true
-     else:
-          true_val = simple_bdd(cf_true)
-     if type(cf_false) is int:
-          false_val = cf_false
-     else:
-          false_val = simple_bdd(cf_false)
-     return {
-          "var" : str(top),
-          "true" : true_val,
-          "false" : false_val
-          }
-
-
-     
 
           
      
+
+     if ordering is None:
+          support = list(bf.support)
+     else:
+          support = ordering
+
+     bdd = {
+          "u" : 1, # Node number (0 and 1 are reseverd for the two terminal nodes)
+          "n" : len(bf.support), # variable will be indexed for 1 to n (with variable i)
+          "support" : support,
+          'H' : dict(),
+          'T' : dict(),  # Index : node number , value (i,h,l) : i : variable index
+                         # h : node number, 'high'/1  , l : node_number 'low'/0
+          
+          }
+
+     init_T(bdd)
+     _build(bdd,bf,1)
+     return bdd
+
+
+          
+     
+    
 
 
 if __name__ == '__main__':
@@ -271,3 +364,7 @@ if __name__ == '__main__':
     with open("bdd_h.dot","w") as f:
          f.write(bdd2dot(bdd_h))
          f.close()
+
+
+    robdd_h = simple_robdd(h,[a,b,c])
+    pp.pprint(robdd_h)
