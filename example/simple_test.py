@@ -243,35 +243,18 @@ def _build(bdd,expr,i):
      - `i`   : variable index (i = 1 : top)
      """
 
-     
-     
-     print("_build " + '-'*20)
-     print("_build : expr = %s" % (expr))
-     print("_build : i    = %d" % (i))
-     print("_build : bdd  = %s" % (bdd))
-     print("_build : n  = %s" % (bdd["n"]))
-    
-     
-
-     
      if i> bdd["n"]: # we have reach the leaves
-          print "End reached !"
           if expr:
                return 1
           else:
                return 0
      else:
-          print "Continuing !"
           var = bdd["support"][i-1]
-          print("_build : var  = %s" % (var))
           if type(expr) is int:
                cf_false = expr
                cf_true  = expr
           else:
                cf_false,cf_true = expr.cofactors(var)
-               print("_build : cofactors for var = %s" %(var))
-               print("_build : cfalse = %s" %(cf_false))
-               print("_build : ctrue = %s" %(cf_true))
           v0 = _build(bdd,cf_false ,i+1)
           v1 = _build(bdd,cf_true,i+1)
           return MK(bdd,i,v0,v1)
@@ -311,9 +294,103 @@ def simple_robdd(bf,ordering=None):
      return bdd
 
 
-          
+
+
+
      
-    
+def Apply(op,bdd1,bdd2):
+     """Apply an boolean operator between the two boolean functions
+ represented by their robdd u1 and u2 and return a new robdd
+     
+     Arguments:
+     - `op`: boolean operator (and,or...)
+     - `bdd1`: 1st ROBDD
+     - `bdd2`: 2nd ROBDD
+     """
+     # First, the support for the two robdds may not be the same...
+     # This is a "problem" has each robdd is in fact represented as a table using indexes
+
+     sup1 = bdd1["support"]
+     sup2 = bdd2["support"]
+
+     t1 = bdd1['H']
+     t2 = bdd2['H']
+
+     new_support = list(set(sup1 + sup2)) # we use list because we want to use index()
+     l_new_support = len(new_support)
+
+
+     def get_u(t):
+          """return the top node in the T table t
+          """
+          return len(t) 
+
+
+     def var_idx(u,t,sup):
+          """Return the "new" index (inside the new support) for entry  u in table t (of type T)          
+             We need the old support to do the look-up
+          """
+          # first get the "old" variable index
+          old_idx,_,_ = t[u] 
+          
+          return new_support.index( sup[old_idx] )
+     def low_t(u,t):
+          _,low,_ = t[u]
+          return low
+
+     def high_t(u,t):
+          _,_,high = t[u]
+          return high
+
+     def App(bdd,u1,u2):
+          """ The recursive function, doing all the work. It operates on a "T" hash table (inside bdd)  (u->(i,l,h)
+          """
+          u = 99999 # just to detect if something is wrong
+          if (u1,u2) in G:
+               return G[(u1,u2)]
+          elif (u1 in (0,1)) and (u2 in (0,1)):               
+               u = op(u1,u2)
+          elif var_idx(u1,t1,sup1) ==  var_idx(u2,t2,sup2):
+               u = MK(bdd=bdd,
+                      i= var_idx(u1,t1,sup1),
+                      l= App(low_t(u1,t1),low(u2,t2)),
+                      h= App(high_t(u1,t1),high_t(u2,t2))
+                      )
+
+          elif var_idx(u1,t1,sup1) <  var_idx(u2,t2,sup2):
+               u = MK(bdd=bdd,
+                      i= var_idx(u1,t1,sup1),
+                      l= App(),
+                      h= App())
+
+               pass
+          else: # var_idx(u1) >  var_idx(u2):
+               u = MK(bdd=bdd,
+                      i= var_idx(u2,t2,sup2),
+                      l= App(),
+                      h= App())
+
+               pass
+          
+          G[(u1,u2)] = u
+          return u
+
+     # result bdd
+     bdd = {
+          "u" : 1, # Node number (0 and 1 are reserved for the two terminal nodes)
+          "n" : l_new_support, # variable will be indexed for 1 to n (with variable i)
+          "support" : new_support,
+          'H' : dict(),
+          'T' : dict(),  # Index : node number , value (i,h,l) : i : variable index
+          # h : node number, 'high'/1  , l : node_number 'low'/0
+          
+          }
+
+     init_T(bdd)
+
+     pp.pprint(new_support)
+     App(bdd,get_u(t1),get_u(t2))
+
 
 
 if __name__ == '__main__':
@@ -368,3 +445,8 @@ if __name__ == '__main__':
 
     robdd_h = simple_robdd(h,[a,b,c])
     pp.pprint(robdd_h)
+    g = b + (-c)
+    robdd_g = simple_robdd(g,[b,c])
+    pp.pprint(robdd_g)
+
+    Apply("and",robdd_h,robdd_g)
