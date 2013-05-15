@@ -281,6 +281,8 @@ def MK(bdd,i,l,h):
         insert_H(bdd,i,l,h,u)
         return u
 
+
+
 def _build(bdd,expr,i):
     """
 
@@ -324,6 +326,22 @@ def _build(bdd,expr,i):
         return MK(bdd,i,v0,v1)
 
 
+def Apply(op,u1,u2):
+    G = dict()
+    merged_support = set(u1['support'],u2['support'])
+    def var_u(bdd):
+        return bdd['T']['support'][0]
+
+       
+
+    def App(u1,u2):
+        u = ()
+        if (u1,u2) in G: return G[(u1,u2)]
+        elif(var_u(u1) == _var(u2)):
+            pass
+        G[(u1,u2)] = u
+
+            
 
 
 def simple_robdd(bf,ordering=None):
