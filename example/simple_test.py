@@ -362,8 +362,8 @@ def Apply(op,bdd1,bdd2):
     sup1 = bdd1["support"]
     sup2 = bdd2["support"]
 
-    t1 = bdd1['H']
-    t2 = bdd2['H']
+    t1 = bdd1['T']
+    t2 = bdd2['T']
     
     G = dict()
 
@@ -374,17 +374,26 @@ def Apply(op,bdd1,bdd2):
     def get_u(t):
          """return the top node in the T table t
          """
-         return len(t) 
+         return len(t)-1 
 
 
     def var_idx(u,t,sup):
          """Return the "new" index (inside the new support) for entry  u in table t (of type T)          
             We need the old support to do the look-up
          """
-         # first get the "old" variable index
-         old_idx,_,_ = t[u] 
+         #  if u is 0 or 1, we return the special index (
+         if u in (0,1): return l_new_support+1
          
-         return new_support.index( sup[old_idx] )
+         # first get the "old" variable index
+         print("var_idx..................")
+         pp.pprint(t)
+         old_idx,_,_ = t[u] 
+         old_idx = old_idx-1 # var starts from 1 for non 0/1 var , support starts with index 0
+         print("u=%d, old_idx=%d" % (u,old_idx))
+         pp.pprint(new_support)
+         pp.pprint(sup)        
+         return new_support.index( sup[old_idx] )+1
+
     def low_t(u,t):
          _,low,_ = t[u]
          return low
@@ -397,29 +406,31 @@ def Apply(op,bdd1,bdd2):
          """ The recursive function, doing all the work. It operates on a "T" hash table (inside bdd)  (u->(i,l,h)
          """
          u = 99999 # just to detect if something is wrong
+         print("App : %d,%d" % (u1,u2))
          if (u1,u2) in G:
               return G[(u1,u2)]
          elif (u1 in (0,1)) and (u2 in (0,1)):               
               u = op(u1,u2)
+              # u = u1 op u2
          elif var_idx(u1,t1,sup1) ==  var_idx(u2,t2,sup2):
               u = MK(bdd=bdd,
                      i= var_idx(u1,t1,sup1),
-                     l= App(low_t(u1,t1),low(u2,t2)),
-                     h= App(high_t(u1,t1),high_t(u2,t2))
+                     l= App(bdd,low_t(u1,t1),low_t(u2,t2)),
+                     h= App(bdd,high_t(u1,t1),high_t(u2,t2))
                      )
 
          elif var_idx(u1,t1,sup1) <  var_idx(u2,t2,sup2):
               u = MK(bdd=bdd,
                      i= var_idx(u1,t1,sup1),
-                     l= App(),
-                     h= App())
+                     l= App(bdd,low_t(u1,t1),u2),
+                     h= App(bdd,high_t(u1,t1),u2))
 
               pass
          else: # var_idx(u1) >  var_idx(u2):
               u = MK(bdd=bdd,
                      i= var_idx(u2,t2,sup2),
-                     l= App(),
-                     h= App())
+                     l= App(bdd,u1,low_t(u2,t2)),
+                     h= App(bdd,u1,high_t(u2,t2)))
 
               pass
          
@@ -441,6 +452,7 @@ def Apply(op,bdd1,bdd2):
 
     pp.pprint(new_support)
     App(bdd,get_u(t1),get_u(t2))
+    return bdd
 
 
 def robdd2dot(robdd):
@@ -462,10 +474,10 @@ def robdd2dot(robdd):
         if var_idx == n+1: # Nodes 0 or 1
             statements.append(vertex2dot(v=u,label=str(u),rank="sink"))
         else: # "normal nodes" (boolean variables)
-            if var_idx not in vertex_already_generated:
-                var = support[var_idx-1]
-                statements.append(vertex2dot(v=u,label=str(var)))
-                vertex_already_generated[var_idx] = 'yes'
+            #if var_idx not in vertex_already_generated:
+            var = support[var_idx-1]
+            statements.append(vertex2dot(v=u,label=str(var)))
+            #vertex_already_generated[var_idx] = 'yes'
             statements.append(edge2dot(u,low,style="dotted",label="0"))
             statements.append(edge2dot(u,high,label="1"))
 
@@ -531,7 +543,11 @@ if __name__ == '__main__':
     robdd_g = simple_robdd(g,[b,c])
     pp.pprint(robdd_g)
 
-    Apply("and",robdd_h,robdd_g)
+    robdd_h_and_g = Apply(And,robdd_h,robdd_g)
+
+    with open("bdd_h_and_h.dot","w") as f:
+        f.write(robdd2dot(robdd_h_and_g))
+        f.close()
 
 #    robdd2dot(robdd_h)
 #    print(robdd2dot(robdd_h))
